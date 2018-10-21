@@ -44,7 +44,19 @@ void custom_method(struct page_table *pt, int page) {
 }
 /* Handle page faults with random method */
 void rand_method(struct page_table *pt, int page) {
-
+    int frame, prot_bits;
+    /* Randomly choose a frame and get its page */
+    int victim_page = frame_table[lrand48() % page_table_get_nframes(pt)];
+    page_table_get_entry(pt, victim_page, &frame, &prot_bits);
+    if (prot_bits & PROT_WRITE){ // If it was written, update disk with new value
+        disk_write(disk, victim_page, &physmem[frame * PAGE_SIZE]);
+        disk_writes++;
+    }
+    disk_read(disk, page, &physmem[frame * PAGE_SIZE]); // TODO: right?
+    disk_reads++;
+    page_table_set_entry(pt, page, frame, PROT_READ);
+    page_table_set_entry(pt, victim_page, frame, 0);
+    frame_table[frame] = page;
 }
 
 /* Handle page faults with FIFO method */
