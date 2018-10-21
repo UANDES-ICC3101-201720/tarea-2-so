@@ -39,12 +39,12 @@ int queue_remove(){
 
 /* Handle page faults with my custom method which consists in:  */
 void custom_method(struct page_table *pt, int page, int *frame, int *prot_bits) {
-    page_faults++;
+
 
 }
 /* Handle page faults with random method */
 void rand_method(struct page_table *pt, int page, int *frame, int *prot_bits) {
-    page_faults++;
+
 
 }
 
