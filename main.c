@@ -25,8 +25,6 @@ struct disk *disk; // Globalized for easier use
 char *physmem;     // Globalized for easier use
 const char *method;
 
-int available_frame(struct page_table *pt);
-
 void queue_append(int frame){
     fifo_queue[(queue_front + queue_count) % queue_len] = frame;
     queue_count++;
@@ -40,18 +38,43 @@ int queue_remove(){
 
 
 /* Handle page faults with my custom method which consists in:  */
-void custom_method(struct page_table *pt, int page){
+void custom_method(struct page_table *pt, int page, int *frame, int *prot_bits) {
     page_faults++;
 
 }
 /* Handle page faults with random method */
-void rand_method(struct page_table *pt, int page){
+void rand_method(struct page_table *pt, int page, int *frame, int *prot_bits) {
     page_faults++;
 
 }
 
 /* Handle page faults with FIFO method */
-void fifo_method(struct page_table *pt, int page){
+void fifo_method(struct page_table *pt, int page, int *frame, int *prot_bits) {
+    /* If no frames available, do swapping with 'first in' */
+    int front_page = frame_table[queue_remove()];
+    /* Check if the page is dirty (W bit) and needs to be updated in disk */
+    page_table_get_entry(pt, front_page, frame, prot_bits);
+    if ((*prot_bits) & PROT_WRITE){ // If it was written, update disk with new value
+                disk_write(disk, front_page, &physmem[(*frame) * PAGE_SIZE]);
+                disk_writes++;
+            }
+    disk_read(disk, page, &physmem[(*frame) * PAGE_SIZE]); // TODO: right?
+    disk_reads++;
+    page_table_set_entry(pt, page, (*frame), PROT_READ);
+    page_table_set_entry(pt, front_page, (*frame), 0);
+}
+
+int available_frame(struct page_table *pt) {
+    for (int i = 0; i < page_table_get_nframes(pt); ++i) {
+        if (frame_table[i] == -1){ // frame available
+            return i;
+        }
+    }
+    return -1; // No frame available
+}
+
+void page_fault_handler( struct page_table *pt, int page )
+{
     page_faults++;
 
     /* First obtain frame number and access permissions to check if page is in memory (R) */
@@ -72,44 +95,21 @@ void fifo_method(struct page_table *pt, int page){
             disk_read(disk, page, &physmem[frame * PAGE_SIZE]); // TODO: right?
             disk_reads++;
 
-        } else {
-            /* If no frames available, do swapping with 'first in' */
-            int front_page = frame_table[queue_remove()];
-            /* Check if the page is dirty (W bit) and needs to be updated in disk */
-            page_table_get_entry(pt, front_page, &frame, &prot_bits);
-            if (prot_bits & PROT_WRITE){ // If it was written, update disk with new value
-                disk_write(disk, front_page, &physmem[frame * PAGE_SIZE]);
-                disk_writes++;
+        } else { // No frame available
+            /* PAGE FAULT HANDLER ALGORITHM */
+            if(!strcmp(method,"fifo")) {
+                fifo_method(pt, page, &frame, &prot_bits);
+            } else if(!strcmp(method,"rand")) {
+                rand_method(pt, page, &frame, &prot_bits);
+            } else if(!strcmp(method,"custom")) {
+                custom_method(pt, page, &frame, &prot_bits);
             }
-            disk_read(disk, page, &physmem[frame * PAGE_SIZE]); // TODO: right?
-            disk_reads++;
-            page_table_set_entry(pt, page, frame, PROT_READ);
-            page_table_set_entry(pt, front_page, frame, 0);
-
         }
 
     }
+
 }
 
-int available_frame(struct page_table *pt) {
-    for (int i = 0; i < page_table_get_nframes(pt); ++i) {
-        if (frame_table[i] == -1){ // frame available
-            return i;
-        }
-    }
-    return -1; // No frame available
-}
-
-void page_fault_handler( struct page_table *pt, int page )
-{
-    if(!strcmp(method,"fifo")) {
-        fifo_method(pt, page);
-    } else if(!strcmp(method,"rand")) {
-        rand_method(pt, page);
-    } else if(!strcmp(method,"custom")) {
-        custom_method(pt, page);
-    }
-}
 
 int main( int argc, char *argv[] )
 {
