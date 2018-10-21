@@ -62,6 +62,8 @@ void fifo_method(struct page_table *pt, int page) {
     disk_reads++;
     page_table_set_entry(pt, page, frame, PROT_READ);
     page_table_set_entry(pt, front_page, frame, 0);
+    frame_table[frame] = page; // important!
+
 }
 
 int available_frame(struct page_table *pt) {
@@ -90,7 +92,7 @@ void page_fault_handler( struct page_table *pt, int page )
         frame = available_frame(pt);
         if (frame >= 0){
             frame_table[frame] = page;
-            queue_append(frame);
+            if(!strcmp(method,"fifo")) queue_append(frame); // Only used in FIFO method
             page_table_set_entry(pt, page, frame, PROT_READ);
             disk_read(disk, page, &physmem[frame * PAGE_SIZE]); // TODO: right?
             disk_reads++;
