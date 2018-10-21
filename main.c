@@ -134,7 +134,7 @@ int main( int argc, char *argv[] )
         fifo_queue = malloc(nframes * sizeof(int)); // At max we will nframes in queue
         queue_front = -1; queue_count = 0; queue_len = nframes;
     }
-    
+
 	disk = disk_open("myvirtualdisk",npages);
 	if(!disk) {
 		fprintf(stderr,"couldn't create virtual disk: %s\n",strerror(errno));
@@ -170,6 +170,7 @@ int main( int argc, char *argv[] )
 	page_table_delete(pt);
 	disk_close(disk);
 	free(frame_table);
+    if(!strcmp(method,"fifo")) free(fifo_queue);
 
 	return 0;
 }
