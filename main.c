@@ -37,9 +37,17 @@ int queue_remove(){
 }
 
 
-/* Handle page faults with my custom method which consists in:  */
+/* Handle page faults with my custom method  */
 void custom_method(struct page_table *pt, int page) {
+    /* I'll use an algorithm inspired in the replacement policy called 'Second Chance'[1], but not quite it (at all).
+     * This algorithm extends the FIFO method but gives a second chance to a page if it's in memory and written to by
+     * putting it in the end of the queue.
+     * In other words, we prefer to replace unmodified pages.
+     * I call it "FIFO on Es"
+     * [1]: http://www.mathcs.emory.edu/~cheung/Courses/355/Syllabus/9-virtual-mem/SC-replace.html */
 
+    int frame = queue_remove();
+    queue_append(frame);
 
 }
 /* Handle page faults with random method */
@@ -98,13 +106,15 @@ void page_fault_handler( struct page_table *pt, int page )
         /* Page is in memory
          * Set W to be able to write in it*/
         page_table_set_entry(pt, page, frame, PROT_READ|PROT_WRITE);
+        /***** CUSTOM METHOD *****/
+        if(!strcmp(method,"custom")) custom_method(pt, page);
     } else {
         /* Page need to be loaded to memory
          * First: Check if there are frames available */
         frame = available_frame(pt);
         if (frame >= 0){
             frame_table[frame] = page;
-            if(!strcmp(method,"fifo")) queue_append(frame); // Only used in FIFO method
+            if(!strcmp(method,"fifo") || !strcmp(method,"custom")) queue_append(frame); // Only used in FIFO and custom method
             page_table_set_entry(pt, page, frame, PROT_READ);
             disk_read(disk, page, &physmem[frame * PAGE_SIZE]); // TODO: right?
             disk_reads++;
@@ -116,7 +126,7 @@ void page_fault_handler( struct page_table *pt, int page )
             } else if(!strcmp(method,"rand")) {
                 rand_method(pt, page);
             } else if(!strcmp(method,"custom")) {
-                custom_method(pt, page);
+                fifo_method(pt, page);
             }
         }
 
@@ -143,8 +153,8 @@ int main( int argc, char *argv[] )
     for (int i = 0; i < nframes; ++i) {
         frame_table[i] = -1; // Initialize frame_table with -1 (frame is free)
     }
-    /* If fifo will be used, initialize its helpers */
-    if(!strcmp(method,"fifo")) {
+    /* If FIFO or custom will be used, initialize its helpers */
+    if(!strcmp(method,"fifo") || !strcmp(method,"custom")) {
         fifo_queue = malloc(nframes * sizeof(int)); // At max we will nframes in queue
         queue_front = -1; queue_count = 0; queue_len = nframes;
     }
@@ -179,12 +189,12 @@ int main( int argc, char *argv[] )
 
 	}
 
-	printf("# page faults: %d\n# disk reads: %d\n# disk writes: %d", page_faults, disk_reads, disk_writes);
+	printf("# page faults: %d\n# disk reads: %d\n# disk writes: %d\n", page_faults, disk_reads, disk_writes);
 
 	page_table_delete(pt);
 	disk_close(disk);
 	free(frame_table);
-    if(!strcmp(method,"fifo")) free(fifo_queue);
+    if(!strcmp(method,"fifo") || !strcmp(method,"custom")) free(fifo_queue);
 
 	return 0;
 }
