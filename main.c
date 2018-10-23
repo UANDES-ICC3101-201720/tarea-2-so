@@ -24,6 +24,7 @@ int queue_len;   // Length of queue (= nframes)
 struct disk *disk; // Globalized for easier use
 char *physmem;     // Globalized for easier use
 const char *method;
+int last_custom;
 
 void queue_append(int frame){
     fifo_queue[(queue_front + queue_count) % queue_len] = frame;
@@ -47,7 +48,12 @@ void custom_method(struct page_table *pt, int page) {
      * [1]: http://www.mathcs.emory.edu/~cheung/Courses/355/Syllabus/9-virtual-mem/SC-replace.html */
 
     int frame = queue_remove();
-    queue_append(frame);
+    if (frame != last_custom){
+//        printf("frame: %d\n", queue_front);
+        queue_append(frame);
+    }
+    last_custom = frame;
+    queue_front = (queue_front + 1) % queue_len;
 
 }
 /* Handle page faults with random method */
@@ -148,7 +154,10 @@ int main( int argc, char *argv[] )
 	const char *program = argv[4];
     method = argv[3];
 
-    page_faults, disk_writes, disk_reads = 0;
+    last_custom = -1;
+    page_faults = 0;
+    disk_writes = 0;
+    disk_reads = 0;
     frame_table = malloc(nframes * sizeof(int));
     for (int i = 0; i < nframes; ++i) {
         frame_table[i] = -1; // Initialize frame_table with -1 (frame is free)
