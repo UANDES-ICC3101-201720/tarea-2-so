@@ -8,6 +8,10 @@ Se espera que performe de igual o mejor manera.
 El algoritmo random debe ser mejor que FIFO, ya que FIFO reemplaza muchas veces la página que fue usada últimamente, lo que no es buena estrategia.
 ## Gráficos
 Colores: 
+- Rojo: FIFO
+- Morado: Custom
+- Naranjo: Random
+
 ### Sort
 #### Faltas de página
 ![](graphs/sort-pf.png)
